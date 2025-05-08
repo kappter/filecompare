@@ -1,73 +1,111 @@
 # File Duplication Detector Web Application
 
 ## Overview
-This web application is designed to assist teachers in detecting potential file upload abuse by analyzing and comparing the metadata of two student-submitted files to estimate the likelihood that one is a duplicate of the other. The application reports a percentage chance of duplication based on metadata similarities, including last modified date as a proxy for creation date, helping identify cases where a student may have submitted a copied or slightly modified file as their own. Built using HTML, CSS, and JavaScript, it operates entirely client-side in the browser for simplicity and privacy.
+This web application assists teachers in detecting potential file upload abuse by comparing metadata of two student-submitted files to estimate the likelihood of duplication. The frontend, hosted on GitHub Pages, uses HTML, CSS, and JavaScript for user interaction and duplication scoring. A Node.js/Express backend, hosted on Render, extracts metadata, including true creation dates (`birthtime`), overcoming client-side limitations. The app reports a percentage chance of duplication, helping identify academic misconduct.
 
 ## Goal
-As a teacher, I need to identify when students submit files that may be duplicates of another student's work, often with minor modifications like renaming. This application allows me to upload two files, analyze their metadata—including last modified date, file name, size, type, content hash, and EXIF data (for images)—and receive a percentage likelihood of duplication. The tool focuses on metadata attributes to flag potential academic misconduct, with special attention to last modified date as an indicator of possible copying.
+As a teacher, I need to identify when students submit files that may be duplicates of another’s work, often with minor modifications like renaming. This application uploads two files to a backend, analyzes their metadata (creation date, last modified date, name, size, type, content hash, and EXIF data for images), and calculates a duplication probability. Hosted on GitHub Pages for the frontend and Render for the backend, it combines accessibility with robust metadata extraction.
 
 ## Analysis Approach
-The application uses a client-side approach to extract metadata, compute a content hash, and calculate a duplication probability using a weighted scoring system. The analysis process includes:
+The application uses a client-server architecture:
+- **Frontend**: Handles file uploads, sends files to the backend, and performs duplication scoring.
+- **Backend**: Extracts metadata, including creation dates, and returns it to the frontend.
 
 1. **File Upload**:
-   - Users upload two files via a web interface with separate file input fields.
-   - The interface ensures both files are selected before enabling analysis.
+   - Users upload two files via the frontend’s file input fields.
+   - Files are sent to the backend’s `POST /upload` endpoint using `FormData`.
 
 2. **Metadata Extraction**:
-   - For each file, the application extracts:
-     - **Name**: The file's name as provided by the user.
-     - **Size**: The file size in bytes.
-     - **Type**: The MIME type (e.g., `image/jpeg`, `application/pdf`).
-     - **Last Modified Date**: The file's last modified timestamp (proxy for creation date), converted to ISO format.
-     - **Content Hash**: A SHA-256 hash of the file's content to detect identical files.
-     - **EXIF Data**: For image files, EXIF metadata (e.g., camera model, date taken) using the `exif-js` library.
-   - Non-image files have `EXIF Data` marked as `N/A`.
+   - The backend extracts:
+     - **Name**: File name.
+     - **Size**: File size in bytes.
+     - **Type**: MIME type (e.g., `image/jpeg`).
+     - **Creation Date**: File creation timestamp (`birthtime`) via `fs.stat`.
+     - **Last Modified Date**: File modified timestamp (`mtime`).
+     - **Content Hash**: SHA-256 hash of file content.
+   - The frontend extracts:
+     - **EXIF Data**: For images, using `exif-js` (client-side to reduce backend load).
+   - Files are deleted immediately after processing.
 
 3. **Duplication Scoring**:
-   - The application compares metadata attributes and assigns a duplication probability based on:
+   - The frontend compares metadata:
      - **Content Hash** (80% weight): Identical hashes indicate identical files.
-     - **EXIF Data** (20% weight): Identical EXIF data suggests the same image source.
+     - **EXIF Data** (20% weight): Identical EXIF data suggests same image source.
      - **Size** (15% weight): Identical sizes are common in duplicates.
-     - **Name** (10% weight): Name similarity is calculated using Levenshtein distance (80%+ similarity contributes to the score).
-     - **Last Modified Date** (10% weight): Identical last modified dates suggest possible copying.
-     - **Type** (5% weight): Identical MIME types are a weak indicator.
-   - A weighted score (0–100%) is computed, capped at 100%, reflecting the likelihood of duplication.
+     - **Name** (10% weight): Name similarity via Levenshtein distance (80%+).
+     - **Creation Date** (10% weight): Identical creation dates suggest copying.
+     - **Last Modified Date** (10% weight): Identical modified dates are suggestive.
+     - **Type** (5% weight): Identical MIME types are weak indicators.
+   - A weighted score (0–100%) is computed, capped at 100%.
 
 4. **Results Display**:
-   - A table displays metadata side-by-side, with similar attributes highlighted in yellow.
-   - A duplication probability percentage is shown prominently.
-   - Warnings list specific indicators (e.g., identical hashes, last modified dates, or similar names) or note if no significant duplication is detected.
+   - A table shows metadata, with similar attributes highlighted.
+   - A duplication probability percentage is displayed.
+   - Warnings list indicators (e.g., identical creation dates) or note no duplication.
 
 ## Technical Details
-- **Technologies**:
-  - **HTML**: Structures the interface with file inputs, an analyze button, a results table, and a score display.
-  - **CSS**: Uses Tailwind CSS (via CDN) for responsive styling, with custom styles in `styles.css`.
-  - **JavaScript**: Handles file input, metadata extraction, hashing, and scoring in `script.js`. Includes `exif-js` for EXIF parsing and `js-sha256` for content hashing.
-- **Dependencies**:
-  - Tailwind CSS (CDN)
-  - `exif-js` (CDN)
-  - `js-sha256` (CDN)
-- **Client-Side Operation**: All processing occurs in the browser, ensuring no student data is sent to a server, prioritizing privacy but limiting metadata depth.
+- **Frontend**:
+  - **HTML**: Structures the interface (`index.html`).
+  - **CSS**: Uses Tailwind CSS (CDN) and `styles.css`.
+  - **JavaScript**: Handles uploads, API calls, and scoring (`script.js`).
+  - **Dependencies**: `exif-js` (CDN), `js-sha256` (CDN).
+  - **Hosting**: GitHub Pages (static site).
+- **Backend**:
+  - **Node.js/Express**: Handles uploads (`multer`) and metadata (`fs.stat`).
+  - **Dependencies**: `express`, `multer`, `crypto` (built-in).
+  - **Hosting**: Render free tier (750 hours/month).
+  - **API**: `POST /upload` endpoint.
+- **Privacy**:
+  - Files deleted after processing.
+  - HTTPS for API calls.
+  - No persistent storage of student data.
+
+## Setup and Deployment
+### 1. Frontend (GitHub Pages)
+1. Create a GitHub repository (e.g., `file-duplication-detector`).
+2. Add `index.html`, `styles.css`, `script.js`.
+3. Push to the `main` or `gh-pages` branch.
+4. Enable GitHub Pages in repository settings: “Pages” > “Source” > “Deploy from a branch” (select `main` or `gh-pages`).
+5. Access at `https://<username>.github.io/<repository>`.
+
+### 2. Backend (Render)
+1. Create a separate GitHub repository (e.g., `file-duplication-backend`).
+2. Add `server.js` and `package.json`.
+3. Deploy on Render:
+   - Create a Web Service, link the backend repo.
+   - Set runtime to Node.js, start command: `node server.js`.
+   - Add environment variable `PORT` (e.g., `3000`) if needed.
+   - Get the URL (e.g., `https://file-duplication-backend.onrender.com`).
+4. Update `script.js` with the backend URL (replace `BACKEND_URL`).
+
+### 3. Local Testing
+1. **Backend**:
+   - Install Node.js (https://nodejs.org).
+   - Clone the backend repo.
+   - Run `npm install` in the repo directory.
+   - Start the server: `node server.js`.
+   - Verify at `http://localhost:3000`.
+2. **Frontend**:
+   - Install a static server (e.g., `live-server`: `npm install -g live-server`).
+   - Run `live-server` in the frontend repo directory.
+   - Update `BACKEND_URL` in `script.js` to `http://localhost:3000/upload`.
+3. Test by uploading files and checking creation date extraction.
 
 ## Limitations
-- **Creation Date Proxy**: The application uses `lastModified` date as a proxy for creation date, as true creation dates are not accessible client-side. This date reflects the last modification time, may lack millisecond precision, and can be altered by users.
-- **Metadata Scope**: Analyzes basic metadata (name, size, type, last modified, hash) and EXIF data for images. Other file types (e.g., PDFs, DOCX) lack deep metadata parsing due to client-side constraints.
-- **Content Modifications**: Hashing detects identical files but not modified duplicates (e.g., a re-saved PDF with minor changes).
-- **File Type Support**: EXIF extraction is image-specific. Other formats rely on basic metadata.
-- **Scoring Subjectivity**: The weighted scoring system is heuristic-based and may require tuning for specific use cases.
-- **Browser Compatibility**: Relies on `File` API, `crypto.subtle`, and modern browser features, which may vary in older browsers.
-
-## Usage
-1. Open `index.html` in a modern web browser.
-2. Upload two files using the provided file input fields.
-3. Click the "Analyze Files" button (enabled only when both files are selected).
-4. Review the duplication probability, comparison table, and warnings to assess potential duplication, noting any identical last modified dates.
+- **Creation Date**:
+  - `birthtime` depends on file system (e.g., NTFS, APFS support it; ext4 may not).
+  - Client-side fallback uses `lastModified` if backend fails.
+- **GitHub Pages**: Static hosting requires a separate backend.
+- **Metadata Scope**: Limited to basic metadata and EXIF for images.
+- **Content Modifications**: Hashing detects identical files, not modified duplicates.
+- **Render Limits**: Free tier has 750 hours/month; heavy use may need a paid plan.
+- **Privacy**: Ensure backend deletes files; review Render’s policies for FERPA compliance.
 
 ## Future Improvements
-- **Extended Metadata Parsing**: Add libraries like `pdf.js` for PDFs or `mammoth` for DOCX to support more file types.
-- **Server-Side Option**: Implement a backend (e.g., with Python and `exiftool`) for true creation date access, deeper metadata analysis, and modified content detection, if privacy concerns can be addressed.
-- **Refined Scoring**: Adjust weights or add new indicators (e.g., partial content similarity) based on real-world testing.
-- **UI Enhancements**: Include file type filters, progress indicators for large files, or downloadable reports.
+- **Extended Metadata**: Add server-side libraries (e.g., `pdf-lib` for PDFs).
+- **Alternative Backends**: Explore AWS Lambda or Python/FastAPI.
+- **Scoring Refinement**: Adjust weights or add partial content checks.
+- **UI Enhancements**: Add upload progress, file type filters, or report exports.
 
 ## License
-This project is intended for educational use by teachers to ensure academic integrity. It is not licensed for commercial use.
+For educational use by teachers to ensure academic integrity. Not for commercial use.

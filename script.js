@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const warningsDiv = document.getElementById('warnings');
   const duplicationScore = document.getElementById('duplicationScore');
 
+  // Replace with your Render backend URL after deployment
+  const BACKEND_URL = 'https://your-backend.onrender.com/upload';
+
   // Enable analyze button when both files are selected
   function checkInputs() {
     compareBtn.disabled = !(file1Input.files.length && file2Input.files.length);
@@ -24,12 +27,35 @@ document.addEventListener('DOMContentLoaded', () => {
     duplicationScore.innerHTML = '';
     resultsDiv.classList.remove('hidden');
 
-    // Extract metadata
-    const meta1 = await getFileMetadata(file1);
-    const meta2 = await getFileMetadata(file2);
+    // Send files to backend
+    const formData = new FormData();
+    formData.append('files', file1);
+    formData.append('files', file2);
+    let meta1, meta2;
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) throw new Error('Backend request failed');
+      [meta1, meta2] = await response.json();
+    } catch (error) {
+      warningsDiv.innerHTML = `<strong>Error:</strong> Failed to fetch metadata from server: ${error.message}. Falling back to client-side analysis.`;
+      // Fallback to client-side metadata extraction
+      meta1 = await getClientMetadata(file1);
+      meta2 = await getClientMetadata(file2);
+    }
+
+    // Extract EXIF data client-side for images
+    if (file1.type.startsWith('image/')) {
+      meta1.exif = await getExifData(file1);
+    }
+    if (file2.type.startsWith('image/')) {
+      meta2.exif = await getExifData(file2);
+    }
 
     // Compare metadata and calculate duplication score
-    const properties = ['Name', 'Size (bytes)', 'Type', 'Last Modified', 'Content Hash', 'EXIF Data'];
+    const properties = ['Name', 'Size (bytes)', 'Type', 'Created', 'Last Modified', 'Content Hash', 'EXIF Data'];
     const warnings = [];
     let score = 0;
     const weights = {
@@ -37,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
       exif: 20,   // Identical EXIF data (images)
       size: 15,   // Identical size
       name: 10,   // Similar name
+      created: 10,// Identical creation date
       modified: 10, // Identical last modified date
       type: 5     // Identical type
     };
@@ -75,9 +102,18 @@ document.addEventListener('DOMContentLoaded', () => {
             isSimilar = true;
           }
           break;
+        case 'Created':
+          val1 = meta1.created || 'N/A';
+          val2 = meta2.created || 'N/A';
+          if (val1 === val2 && val1 !== 'N/A') {
+            score += weights.created;
+            isSimilar = true;
+            warnings.push('Files have identical creation dates, which may suggest copying.');
+          }
+          break;
         case 'Last Modified':
-          val1 = meta1.lastModified;
-          val2 = meta2.lastModified;
+          val1 = meta1.modified || 'N/A';
+          val2 = meta2.modified || 'N/A';
           if (val1 === val2 && val1 !== 'N/A') {
             score += weights.modified;
             isSimilar = true;
@@ -127,26 +163,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Extract file metadata
-  async function getFileMetadata(file) {
+  // Fallback client-side metadata extraction
+  async function getClientMetadata(file) {
     const metadata = {
       name: file.name,
       size: file.size,
       type: file.type,
-      lastModified: file.lastModified ? new Date(file.lastModified).toISOString() : 'N/A',
+      created: 'N/A',
+      modified: file.lastModified ? new Date(file.lastModified).toISOString() : 'N/A',
       hash: await getFileHash(file),
       exif: null
     };
-
-    // Attempt to extract EXIF data for images
-    if (file.type.startsWith('image/')) {
-      try {
-        metadata.exif = await getExifData(file);
-      } catch (e) {
-        console.warn('Failed to extract EXIF data:', e);
-      }
-    }
-
     return metadata;
   }
 
