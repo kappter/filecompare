@@ -1,10 +1,10 @@
 # File Duplication Detector Web Application
 
 ## Overview
-This web application is designed to assist teachers in detecting potential file upload abuse by analyzing and comparing the metadata of two student-submitted files to estimate the likelihood that one is a duplicate of the other. The application reports a percentage chance of duplication based on metadata similarities, helping identify cases where a student may have submitted a copied or slightly modified file as their own. Built using HTML, CSS, and JavaScript, it operates entirely client-side in the browser for simplicity and privacy.
+This web application is designed to assist teachers in detecting potential file upload abuse by analyzing and comparing the metadata of two student-submitted files to estimate the likelihood that one is a duplicate of the other. The application reports a percentage chance of duplication based on metadata similarities, including last modified date as a proxy for creation date, helping identify cases where a student may have submitted a copied or slightly modified file as their own. Built using HTML, CSS, and JavaScript, it operates entirely client-side in the browser for simplicity and privacy.
 
 ## Goal
-As a teacher, I need to identify when students submit files that may be duplicates of another student's work, often with minor modifications like renaming. This application allows me to upload two files, analyze their metadata (excluding creation date due to client-side limitations), and receive a percentage likelihood of duplication. The tool focuses on metadata attributes like file name, size, type, content hash, and EXIF data (for images) to flag potential academic misconduct.
+As a teacher, I need to identify when students submit files that may be duplicates of another student's work, often with minor modifications like renaming. This application allows me to upload two files, analyze their metadata—including last modified date, file name, size, type, content hash, and EXIF data (for images)—and receive a percentage likelihood of duplication. The tool focuses on metadata attributes to flag potential academic misconduct, with special attention to last modified date as an indicator of possible copying.
 
 ## Analysis Approach
 The application uses a client-side approach to extract metadata, compute a content hash, and calculate a duplication probability using a weighted scoring system. The analysis process includes:
@@ -18,23 +18,25 @@ The application uses a client-side approach to extract metadata, compute a conte
      - **Name**: The file's name as provided by the user.
      - **Size**: The file size in bytes.
      - **Type**: The MIME type (e.g., `image/jpeg`, `application/pdf`).
+     - **Last Modified Date**: The file's last modified timestamp (proxy for creation date), converted to ISO format.
      - **Content Hash**: A SHA-256 hash of the file's content to detect identical files.
      - **EXIF Data**: For image files, EXIF metadata (e.g., camera model, date taken) using the `exif-js` library.
    - Non-image files have `EXIF Data` marked as `N/A`.
 
 3. **Duplication Scoring**:
    - The application compares metadata attributes and assigns a duplication probability based on:
-     - **Content Hash** (90% weight): Identical hashes indicate identical files.
+     - **Content Hash** (80% weight): Identical hashes indicate identical files.
      - **EXIF Data** (20% weight): Identical EXIF data suggests the same image source.
      - **Size** (15% weight): Identical sizes are common in duplicates.
      - **Name** (10% weight): Name similarity is calculated using Levenshtein distance (80%+ similarity contributes to the score).
+     - **Last Modified Date** (10% weight): Identical last modified dates suggest possible copying.
      - **Type** (5% weight): Identical MIME types are a weak indicator.
    - A weighted score (0–100%) is computed, capped at 100%, reflecting the likelihood of duplication.
 
 4. **Results Display**:
    - A table displays metadata side-by-side, with similar attributes highlighted in yellow.
    - A duplication probability percentage is shown prominently.
-   - Warnings list specific indicators (e.g., identical hashes or similar names) or note if no significant duplication is detected.
+   - Warnings list specific indicators (e.g., identical hashes, last modified dates, or similar names) or note if no significant duplication is detected.
 
 ## Technical Details
 - **Technologies**:
@@ -48,8 +50,8 @@ The application uses a client-side approach to extract metadata, compute a conte
 - **Client-Side Operation**: All processing occurs in the browser, ensuring no student data is sent to a server, prioritizing privacy but limiting metadata depth.
 
 ## Limitations
-- **Metadata Scope**: The application analyzes basic metadata (name, size, type, hash) and EXIF data for images. Other file types (e.g., PDFs, DOCX) lack deep metadata parsing due to client-side constraints.
-- **No Creation Date**: Client-side JavaScript cannot access true creation dates, so the application relies on other indicators like content hash and EXIF data.
+- **Creation Date Proxy**: The application uses `lastModified` date as a proxy for creation date, as true creation dates are not accessible client-side. This date reflects the last modification time, may lack millisecond precision, and can be altered by users.
+- **Metadata Scope**: Analyzes basic metadata (name, size, type, last modified, hash) and EXIF data for images. Other file types (e.g., PDFs, DOCX) lack deep metadata parsing due to client-side constraints.
 - **Content Modifications**: Hashing detects identical files but not modified duplicates (e.g., a re-saved PDF with minor changes).
 - **File Type Support**: EXIF extraction is image-specific. Other formats rely on basic metadata.
 - **Scoring Subjectivity**: The weighted scoring system is heuristic-based and may require tuning for specific use cases.
@@ -59,11 +61,11 @@ The application uses a client-side approach to extract metadata, compute a conte
 1. Open `index.html` in a modern web browser.
 2. Upload two files using the provided file input fields.
 3. Click the "Analyze Files" button (enabled only when both files are selected).
-4. Review the duplication probability, comparison table, and warnings to assess potential duplication.
+4. Review the duplication probability, comparison table, and warnings to assess potential duplication, noting any identical last modified dates.
 
 ## Future Improvements
 - **Extended Metadata Parsing**: Add libraries like `pdf.js` for PDFs or `mammoth` for DOCX to support more file types.
-- **Server-Side Option**: Implement a backend (e.g., with Python and `exiftool`) for deeper metadata analysis and modified content detection, if privacy concerns can be addressed.
+- **Server-Side Option**: Implement a backend (e.g., with Python and `exiftool`) for true creation date access, deeper metadata analysis, and modified content detection, if privacy concerns can be addressed.
 - **Refined Scoring**: Adjust weights or add new indicators (e.g., partial content similarity) based on real-world testing.
 - **UI Enhancements**: Include file type filters, progress indicators for large files, or downloadable reports.
 

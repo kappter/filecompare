@@ -29,15 +29,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const meta2 = await getFileMetadata(file2);
 
     // Compare metadata and calculate duplication score
-    const properties = ['Name', 'Size (bytes)', 'Type', 'Content Hash', 'EXIF Data'];
+    const properties = ['Name', 'Size (bytes)', 'Type', 'Last Modified', 'Content Hash', 'EXIF Data'];
     const warnings = [];
     let score = 0;
     const weights = {
-      hash: 90, // Identical content
-      exif: 20, // Identical EXIF data (images)
-      size: 15, // Identical size
-      name: 10, // Similar name
-      type: 5   // Identical type
+      hash: 80,   // Identical content
+      exif: 20,   // Identical EXIF data (images)
+      size: 15,   // Identical size
+      name: 10,   // Similar name
+      modified: 10, // Identical last modified date
+      type: 5     // Identical type
     };
 
     properties.forEach(prop => {
@@ -72,6 +73,15 @@ document.addEventListener('DOMContentLoaded', () => {
           if (val1 === val2) {
             score += weights.type;
             isSimilar = true;
+          }
+          break;
+        case 'Last Modified':
+          val1 = meta1.lastModified;
+          val2 = meta2.lastModified;
+          if (val1 === val2 && val1 !== 'N/A') {
+            score += weights.modified;
+            isSimilar = true;
+            warnings.push('Files have identical last modified dates, which may suggest copying.');
           }
           break;
         case 'Content Hash':
@@ -123,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
       name: file.name,
       size: file.size,
       type: file.type,
+      lastModified: file.lastModified ? new Date(file.lastModified).toISOString() : 'N/A',
       hash: await getFileHash(file),
       exif: null
     };
