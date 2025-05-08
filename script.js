@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const warningsDiv = document.getElementById('warnings');
   const duplicationScore = document.getElementById('duplicationScore');
 
-  // Replace with your Render backend URL after deployment
-  const BACKEND_URL = 'https://your-backend.onrender.com/upload';
+  // Replace with your actual Render backend URL after deployment
+  const BACKEND_URL = 'https://file-duplication-backend.onrender.com/upload';
 
   // Enable analyze button when both files are selected
   function checkInputs() {
@@ -55,14 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Compare metadata and calculate duplication score
-    const properties = ['Name', 'Size (bytes)', 'Type', 'Created', 'Last Modified', 'Content Hash', 'EXIF Data'];
+    const properties = ['Size (bytes)', 'Type', 'Created', 'Last Modified', 'Content Hash', 'EXIF Data'];
     const warnings = [];
     let score = 0;
     const weights = {
-      hash: 80,   // Identical content
+      hash: 85,   // Identical content
       exif: 20,   // Identical EXIF data (images)
-      size: 15,   // Identical size
-      name: 10,   // Similar name
+      size: 20,   // Identical size
       created: 10,// Identical creation date
       modified: 10, // Identical last modified date
       type: 5     // Identical type
@@ -73,18 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
       let val1, val2, isSimilar = false;
 
       switch (prop) {
-        case 'Name':
-          val1 = meta1.name;
-          val2 = meta2.name;
-          const similarity = 1 - levenshtein(val1, val2) / Math.max(val1.length, val2.length);
-          if (similarity > 0.8) {
-            score += weights.name * similarity;
-            isSimilar = true;
-            warnings.push(`File names are highly similar (${(similarity * 100).toFixed(0)}% match).`);
-          }
-          val1 = `${val1} (${(similarity * 100).toFixed(0)}% match)`;
-          val2 = `${val2} (${(similarity * 100).toFixed(0)}% match)`;
-          break;
         case 'Size (bytes)':
           val1 = meta1.size;
           val2 = meta2.size;
@@ -113,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
           break;
         case 'Last Modified':
           val1 = meta1.modified || 'N/A';
-          val2 = meta2.modified || 'N/A';
+          val2 = meta1.modified || 'N/A';
           if (val1 === val2 && val1 !== 'N/A') {
             score += weights.modified;
             isSimilar = true;
@@ -197,23 +184,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
-  }
-
-  // Levenshtein distance for name similarity
-  function levenshtein(a, b) {
-    const matrix = Array(b.length + 1).fill().map(() => Array(a.length + 1).fill(0));
-    for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
-    for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
-    for (let j = 1; j <= b.length; j++) {
-      for (let i = 1; i <= a.length; i++) {
-        const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
-        matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1,
-          matrix[j - 1][i] + 1,
-          matrix[j - 1][i - 1] + indicator
-        );
-      }
-    }
-    return matrix[b.length][a.length];
   }
 });
